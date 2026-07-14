@@ -8,6 +8,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  RUSTC_WRAPPER: sccache
+  SCCACHE_GHA_ENABLED: "true"
 
 jobs:
   build:
@@ -16,6 +18,17 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Set up sccache
+      uses: mozilla-actions/sccache-action@v0.0.9
+    - name: Cache Cargo registry and git deps
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry/index
+          ~/.cargo/registry/cache
+          ~/.cargo/git/db
+        key: cargo-${{ hashFiles('Cargo.lock') }}
+        restore-keys: cargo-
     - name: Install system dependencies
       run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
     - name: Build
