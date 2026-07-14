@@ -9,7 +9,10 @@ fn any_value_to_string(v: &Value) -> Option<String> {
         Value::BoolValue(b) => Some(b.to_string()),
         Value::IntValue(i) => Some(i.to_string()),
         Value::DoubleValue(d) => Some(d.to_string()),
-        Value::StringValueStrindex(_) | Value::ArrayValue(_) | Value::KvlistValue(_) | Value::BytesValue(_) => None,
+        Value::StringValueStrindex(_)
+        | Value::ArrayValue(_)
+        | Value::KvlistValue(_)
+        | Value::BytesValue(_) => None,
     }
 }
 
