@@ -44,7 +44,7 @@ struct Cli {
     #[arg(long, env = "KAFKA_OFFSET", default_value = "latest")]
     offset: String,
 
-    #[arg(long, env = "KAFKA_MAX_MESSAGES", default_value = "100000")]
+    #[arg(long, env = "KAFKA_MAX_MESSAGES", default_value = "1000000")]
     max_messages: usize,
 
     #[arg(long, env = "KAFKA_IDLE_TIMEOUT", default_value = "60.0")]
