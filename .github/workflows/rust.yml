@@ -16,7 +16,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Install system dependencies
+      run: sudo apt-get install -y libcurl4-openssl-dev
     - name: Build
       run: cargo build --verbose
+    - name: Clippy
+      run: cargo clippy -- -D warnings
+    - name: Format check
+      run: cargo fmt --check
     - name: Run tests
       run: cargo test --verbose
