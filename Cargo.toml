@@ -1,0 +1,33 @@
+[package]
+name = "kafka-key-guestimator-rs"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "kafka-key-guestimator-rs"
+path = "src/main.rs"
+
+[profile.release]
+lto = true
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+rdkafka = { version = "0.39", git = "https://github.com/fede1024/rust-rdkafka.git", rev="598ac4ba1f714852bdf4e5685fe10cf5a66e947c", features = ["libz-static", "cmake-build", "tokio", "zstd"] }
+clap = { version = "4", features = ["derive", "env"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+csv = "1"
+uuid = { version = "1", features = ["v4"] }
+anyhow = "1"
+libc = "0.2"
+chrono = { version = "0.4", features = ["std"] }
+futures = "0.3"
+jemallocator = "0.5.4"
+
+opentelemetry = { version = "0.27", features = ["metrics"] }
+opentelemetry_sdk = { version = "0.27", features = ["rt-tokio", "metrics"] }
+opentelemetry-otlp = { version = "0.27", features = ["grpc-tonic", "metrics"] }
+opentelemetry-semantic-conventions = "0.27"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-opentelemetry = "0.28"
