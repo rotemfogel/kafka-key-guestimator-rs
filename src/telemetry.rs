@@ -3,7 +3,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 
 /// Holds OTel providers alive for the process lifetime; flushes on drop.
 pub struct TelemetryGuard {
-    tracer_provider: Option<opentelemetry_sdk::trace::TracerProvider>,
+    tracer_provider: Option<opentelemetry_sdk::trace::SdkTracerProvider>,
     meter_provider: Option<opentelemetry_sdk::metrics::SdkMeterProvider>,
 }
 
@@ -60,17 +60,19 @@ pub fn init(log_level: &str) -> Result<TelemetryGuard> {
 fn setup_otlp(
     endpoint: &str,
 ) -> Result<(
-    opentelemetry_sdk::trace::TracerProvider,
+    opentelemetry_sdk::trace::SdkTracerProvider,
     opentelemetry_sdk::metrics::SdkMeterProvider,
 )> {
     use opentelemetry::KeyValue;
     use opentelemetry_otlp::WithExportConfig;
-    use opentelemetry_sdk::{metrics::PeriodicReader, runtime, Resource};
+    use opentelemetry_sdk::{metrics::PeriodicReader, Resource};
 
-    let resource = Resource::new(vec![KeyValue::new(
-        opentelemetry_semantic_conventions::resource::SERVICE_NAME,
-        "kafka-key-guestimator",
-    )]);
+    let resource = Resource::builder()
+        .with_attributes([KeyValue::new(
+            opentelemetry_semantic_conventions::resource::SERVICE_NAME,
+            "kafka-key-guestimator",
+        )])
+        .build();
 
     // ── Traces ──────────────────────────────────────────────────────────────
     let span_exporter = opentelemetry_otlp::SpanExporter::builder()
@@ -78,8 +80,8 @@ fn setup_otlp(
         .with_endpoint(endpoint)
         .build()?;
 
-    let tracer_provider = opentelemetry_sdk::trace::TracerProvider::builder()
-        .with_batch_exporter(span_exporter, runtime::Tokio)
+    let tracer_provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
+        .with_batch_exporter(span_exporter)
         .with_resource(resource.clone())
         .build();
 
@@ -91,7 +93,7 @@ fn setup_otlp(
         .with_endpoint(endpoint)
         .build()?;
 
-    let reader = PeriodicReader::builder(metrics_exporter, runtime::Tokio).build();
+    let reader = PeriodicReader::builder(metrics_exporter).build();
     let meter_provider = opentelemetry_sdk::metrics::SdkMeterProvider::builder()
         .with_reader(reader)
         .with_resource(resource)
