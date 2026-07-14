@@ -1,53 +1,16 @@
 use std::collections::HashMap;
 
-use serde::Deserialize;
+use opentelemetry_proto::tonic::collector::metrics::v1::ExportMetricsServiceRequest;
+use opentelemetry_proto::tonic::common::v1::any_value::Value;
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ExportRequest {
-    #[serde(default)]
-    resource_metrics: Vec<ResourceMetrics>,
-}
-
-#[derive(Deserialize)]
-struct ResourceMetrics {
-    #[serde(default)]
-    resource: Resource,
-}
-
-#[derive(Deserialize, Default)]
-struct Resource {
-    #[serde(default)]
-    attributes: Vec<KeyValue>,
-}
-
-#[derive(Deserialize)]
-struct KeyValue {
-    key: String,
-    value: serde_json::Value,
-}
-
-/// OTLP JSON encodes int64 as a JSON string; everything else is a JSON primitive.
-fn any_value_to_string(v: &serde_json::Value) -> Option<String> {
-    let obj = v.as_object()?;
-    if let Some(s) = obj.get("stringValue").and_then(|v| v.as_str()) {
-        return Some(s.to_owned());
+fn any_value_to_string(v: &Value) -> Option<String> {
+    match v {
+        Value::StringValue(s) => Some(s.clone()),
+        Value::BoolValue(b) => Some(b.to_string()),
+        Value::IntValue(i) => Some(i.to_string()),
+        Value::DoubleValue(d) => Some(d.to_string()),
+        Value::StringValueStrindex(_) | Value::ArrayValue(_) | Value::KvlistValue(_) | Value::BytesValue(_) => None,
     }
-    if let Some(b) = obj.get("boolValue").and_then(|v| v.as_bool()) {
-        return Some(b.to_string());
-    }
-    if let Some(i) = obj.get("intValue") {
-        // protobuf JSON: int64 serialised as a quoted string
-        return Some(match i {
-            serde_json::Value::String(s) => s.clone(),
-            serde_json::Value::Number(n) => n.to_string(),
-            _ => return None,
-        });
-    }
-    if let Some(d) = obj.get("doubleValue").and_then(|v| v.as_f64()) {
-        return Some(d.to_string());
-    }
-    None
 }
 
 /// Extract resource attribute maps from one raw OTLP JSON line.
@@ -58,7 +21,7 @@ pub fn parse_resource_attrs(line: &str) -> Vec<HashMap<String, String>> {
         return vec![];
     }
 
-    let req: ExportRequest = match serde_json::from_str(line) {
+    let req: ExportMetricsServiceRequest = match serde_json::from_str(line) {
         Ok(r) => r,
         Err(e) => {
             tracing::debug!(
@@ -74,9 +37,14 @@ pub fn parse_resource_attrs(line: &str) -> Vec<HashMap<String, String>> {
         .into_iter()
         .map(|rm| {
             rm.resource
-                .attributes
                 .into_iter()
-                .filter_map(|kv| any_value_to_string(&kv.value).map(|v| (kv.key, v)))
+                .flat_map(|r| r.attributes)
+                .filter_map(|kv| {
+                    kv.value
+                        .and_then(|av| av.value)
+                        .and_then(|v| any_value_to_string(&v))
+                        .map(|s| (kv.key, s))
+                })
                 .collect()
         })
         .collect()
@@ -152,7 +120,7 @@ mod tests {
 
     #[test]
     fn unknown_value_type_filtered_out_leaving_empty_map() {
-        let json = r#"{"resourceMetrics":[{"resource":{"attributes":[{"key":"arr","value":{"arrayValue":{}}}]}}]}"#;
+        let json = r#"{"resourceMetrics":[{"resource":{"attributes":[{"key":"arr","value":{"arrayValue":{"values":[]}}}]}}]}"#;
         let result = parse_resource_attrs(json);
         assert_eq!(result.len(), 1);
         assert!(result[0].is_empty());
